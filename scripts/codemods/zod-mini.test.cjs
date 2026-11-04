@@ -5,9 +5,10 @@ const vm = require('node:vm');
 const prettier = require('prettier');
 const ts = require('typescript');
 
-const { migrate } = require('./zod-mini.cjs');
+const { addZodModuleResolutionFallback, migrate } = require('./zod-mini.cjs');
 
 const fixtureRoot = path.join(__dirname, '__fixtures__');
+const repositoryRoot = path.resolve(__dirname, '../..');
 const options = {
   strict: true,
   skipLibCheck: true,
@@ -19,8 +20,8 @@ const options = {
   noEmit: true,
 };
 
-function createProgram(files) {
-  const contents = new Map(Object.entries(files).map(([name, text]) => [path.join(fixtureRoot, name), text]));
+function createProgram(files, root = fixtureRoot) {
+  const contents = new Map(Object.entries(files).map(([name, text]) => [path.join(root, name), text]));
   const host = ts.createCompilerHost(options);
   const readFile = host.readFile;
   const fileExists = host.fileExists;
@@ -32,8 +33,9 @@ function createProgram(files) {
   };
   host.directoryExists = (
     (original) => (directory) =>
-      directory === fixtureRoot || original(directory)
+      directory === root || original(directory)
   )(host.directoryExists);
+  addZodModuleResolutionFallback(host, options, repositoryRoot);
   return ts.createProgram([...contents.keys()], options, host);
 }
 
@@ -292,6 +294,20 @@ export const schema = z.object({
   assert.equal(schema.safeParse({ title: 'ab', suggestions: [] }).success, false);
   assert.equal(schema.safeParse({ title: 'abc', suggestions: ['unexpected'] }).success, false);
   assert.equal(schema.safeParse({ title: 'abc', suggestions: [], extra: 1 }).success, false);
+});
+
+test('migrates Classic methods in an external file that already imports Zod Mini', () => {
+  const root = path.resolve(repositoryRoot, '../grafana-enterprise/src/public/__zod_mini_codemod_test__');
+  const input = `import * as z from 'zod/mini';
+export const schema = z.string().trim().min(2).regex(/^a/);
+`;
+  const program = createProgram({ 'schema.ts': input }, root);
+  const file = path.join(root, 'schema.ts');
+  const changes = migrate(program, [file]);
+  const output = changes.get(file);
+
+  assert.match(output, /z\.string\(\)\.check\(z\.trim\(\), z\.minLength\(2\), z\.regex\(\/\^a\/\)\)/);
+  assert.deepEqual(diagnostics(createProgram({ 'schema.ts': output }, root)), []);
 });
 
 test('migrates schema JSON conversion, including consumers without a Zod import', () => {

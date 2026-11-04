@@ -79,9 +79,48 @@ const typeNames = new Map([
   ['ZodTypeAny', 'ZodMiniType'],
   ['RefinementCtx', 'core.$RefinementCtx'],
 ]);
+const schemaChainMethods = new Set([
+  ...wrappers.keys(),
+  ...checks,
+  'min',
+  'max',
+  'strict',
+  'transform',
+  'toJSONSchema',
+]);
 
 function isZodDeclaration(declaration) {
   return /[/\\]zod[/\\]/.test(declaration.getSourceFile().fileName);
+}
+
+function addZodModuleResolutionFallback(host, options, root) {
+  host.resolveModuleNames = (
+    moduleNames,
+    containingFile,
+    _reusedNames,
+    redirectedReference,
+    compilerOptions = options
+  ) =>
+    moduleNames.map((moduleName) => {
+      let resolved = ts.resolveModuleName(
+        moduleName,
+        containingFile,
+        compilerOptions,
+        host,
+        undefined,
+        redirectedReference
+      ).resolvedModule;
+      if (!resolved && (moduleName === 'zod' || moduleName.startsWith('zod/'))) {
+        resolved = ts.resolveModuleName(
+          moduleName,
+          path.join(root, '__zod_mini_codemod__.ts'),
+          compilerOptions,
+          host
+        ).resolvedModule;
+      }
+      return resolved;
+    });
+  return host;
 }
 
 /**
@@ -96,7 +135,15 @@ function migrate(program, fileNames) {
 
   function isSchema(node) {
     const type = checker.getTypeAtLocation(node);
-    return type.getProperty('_zod')?.declarations?.some(isZodDeclaration) ?? false;
+    if (type.getProperty('_zod')?.declarations?.some(isZodDeclaration)) {
+      return true;
+    }
+    return (
+      ts.isCallExpression(node) &&
+      ts.isPropertyAccessExpression(node.expression) &&
+      schemaChainMethods.has(node.expression.name.text) &&
+      isSchema(node.expression.expression)
+    );
   }
 
   for (const source of program.getSourceFiles()) {
@@ -178,13 +225,22 @@ function migrate(program, fileNames) {
     function schemaKind(node) {
       const type = checker.getTypeAtLocation(node);
       const internals = type.getProperty('_zod');
-      if (!internals) {
-        return undefined;
+      if (internals) {
+        const def = checker.getTypeOfSymbolAtLocation(internals, node).getProperty('def');
+        const kind = def && checker.getTypeOfSymbolAtLocation(def, node).getProperty('type');
+        const kindType = kind && checker.getTypeOfSymbolAtLocation(kind, node);
+        if (kindType?.isStringLiteral()) {
+          return kindType.value;
+        }
       }
-      const def = checker.getTypeOfSymbolAtLocation(internals, node).getProperty('def');
-      const kind = def && checker.getTypeOfSymbolAtLocation(def, node).getProperty('type');
-      const kindType = kind && checker.getTypeOfSymbolAtLocation(kind, node);
-      return kindType?.isStringLiteral() ? kindType.value : undefined;
+      if (
+        ts.isCallExpression(node) &&
+        ts.isPropertyAccessExpression(node.expression) &&
+        schemaChainMethods.has(node.expression.name.text)
+      ) {
+        return schemaKind(node.expression.expression);
+      }
+      return undefined;
     }
 
     function guardType(predicate) {
@@ -540,10 +596,12 @@ async function main(args) {
         .split('\0')
         .filter(Boolean)
         .map((file) => path.join(root, file));
-  const program = ts.createProgram([...new Set([...parsed.fileNames, ...fileNames])], {
+  const compilerOptions = {
     ...parsed.options,
     incremental: false,
-  });
+  };
+  const compilerHost = addZodModuleResolutionFallback(ts.createCompilerHost(compilerOptions), compilerOptions, root);
+  const program = ts.createProgram([...new Set([...parsed.fileNames, ...fileNames])], compilerOptions, compilerHost);
   const changes = migrate(program, fileNames);
   const formatted = new Map();
   for (const [file, text] of changes) {
@@ -559,7 +617,7 @@ async function main(args) {
   console.log(`${write ? 'Updated' : 'Would update'} ${formatted.size} files.`);
 }
 
-module.exports = { migrate };
+module.exports = { addZodModuleResolutionFallback, migrate };
 
 if (require.main === module) {
   main(process.argv.slice(2)).catch((error) => {
