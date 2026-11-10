@@ -2,11 +2,13 @@ import { useMemo } from 'react';
 import * as z from 'zod';
 
 import { generatedAPI } from '@grafana/api-clients/rtkq/rules.alerting/v0alpha1';
+import { generatedAPI as ruleSequenceAPI } from '@grafana/api-clients/rtkq/rules.alerting/v1beta1';
 
 import { type ResultTotal } from '../rule-row/ResultCount';
 import { type FilterIssue } from '../rule-search/parser';
 import { getRejectionIssues } from '../rule-search/searchRejection';
 import { type RuleListMode } from '../rule-search/useRuleListSearchState';
+import { membershipSearchArg, toMembershipEntries } from '../rule-sequences/ruleSequenceMembership';
 import { type PagedFailure } from '../shared/PagedFailureAlert';
 
 import { type AlertRuleFilter } from './alertRuleFilters';
@@ -44,20 +46,36 @@ const alertRuleSearchAPI = generatedAPI.injectEndpoints({
       },
       // Results are a view of the current page only: leaving it drops them, and coming back searches again.
       keepUnusedDataFor: 0,
-      query: ({ queryArg, pageParam }) => ({
-        url: '/searchAlertRules',
-        method: 'POST',
-        body: buildAlertRuleSearchQuery(queryArg, pageParam),
-      }),
-      rawResponseSchema: alertRuleSearchResponseSchema,
-      // A response that fails the schema becomes a query error, so the page shows it with Retry.
-      catchSchemaFailure: (error) => ({ message: error.message }),
-      transformResponse: (response: AlertRuleSearchResponse): AlertRuleSearchPage => ({
-        hits: response.items,
-        continueToken: response.metadata.continue,
-        total: toResultTotal(response.metadata),
-      }),
-      providesTags: ['AlertRule'],
+      queryFn: async ({ queryArg, pageParam }, api, _extraOptions, baseQuery) => {
+        const response = await baseQuery({
+          url: '/searchAlertRules',
+          method: 'POST',
+          body: buildAlertRuleSearchQuery(queryArg, pageParam),
+        });
+        if (response.error) {
+          return { error: response.error };
+        }
+        // A response that fails the schema becomes a query error, so the page shows it with Retry.
+        const parsed = alertRuleSearchResponseSchema.safeParse(response.data);
+        if (!parsed.success) {
+          return { error: { message: parsed.error.message } };
+        }
+        const page = toAlertRuleSearchPage(parsed.data);
+        // Before returning, so the rows mount with their membership already cached.
+        const uids = page.hits.map((hit) => hit.uid);
+        if (uids.length > 0) {
+          // forceRefetch: a page refetch must not reuse an earlier answer for the same rules.
+          const sequences = await api.dispatch(
+            ruleSequenceAPI.endpoints.listRuleSequenceSearchV1Beta1.initiate(membershipSearchArg('alert', uids), {
+              subscribe: false,
+              forceRefetch: true,
+            })
+          );
+          api.dispatch(ruleSequenceAPI.util.upsertQueryEntries(toMembershipEntries('alert', uids, sequences.data)));
+        }
+        return { data: page };
+      },
+      providesTags: ['AlertRule', 'RuleSequence'],
     }),
   }),
 });
@@ -112,6 +130,14 @@ export function useAlertRuleSearchRejection(
     () => (skip ? [] : (getRejectionIssues(error, buildAlertRuleLeaves(filter)) ?? [])),
     [skip, error, filter]
   );
+}
+
+function toAlertRuleSearchPage(response: AlertRuleSearchResponse): AlertRuleSearchPage {
+  return {
+    hits: response.items,
+    continueToken: response.metadata.continue,
+    total: toResultTotal(response.metadata),
+  };
 }
 
 function toResultTotal({ totalHits, totalHitsRelation }: AlertRuleSearchResponse['metadata']): ResultTotal | undefined {

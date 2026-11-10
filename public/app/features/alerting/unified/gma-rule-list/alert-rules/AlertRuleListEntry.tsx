@@ -2,6 +2,7 @@ import { useGetAlertRuleQuery } from '@grafana/api-clients/rtkq/rules.alerting/v
 
 import { RuleActionsSkeleton } from '../../rule-list/components/RuleActionsSkeleton';
 import { useFolderPath } from '../folder-browsing/folderLookups';
+import { useRuleSequenceMembership } from '../rule-sequences/ruleSequenceMembership';
 
 import { AlertRuleActions } from './AlertRuleActions';
 import { AlertRuleRow } from './AlertRuleRow';
@@ -17,6 +18,8 @@ interface AlertRuleListEntryProps {
 export function AlertRuleListEntry({ searchHit, showFolderPath }: AlertRuleListEntryProps) {
   const folderPath = useFolderPath(showFolderPath ? searchHit.folderUid : undefined);
   const { data: fullRule, isLoading } = useGetAlertRuleQuery({ name: searchHit.uid });
+  // Usually already cached by the page search, so this sends no request.
+  const membership = useRuleSequenceMembership('alert', searchHit.uid);
 
   let actions = null;
   if (isLoading) {
@@ -25,5 +28,13 @@ export function AlertRuleListEntry({ searchHit, showFolderPath }: AlertRuleListE
     actions = <AlertRuleActions rule={fullRule} />;
   }
 
-  return <AlertRuleRow searchHit={searchHit} folderPath={folderPath} rule={fullRule} actions={actions} />;
+  return (
+    <AlertRuleRow
+      searchHit={searchHit}
+      folderPath={folderPath}
+      rule={fullRule}
+      membership={membership}
+      actions={actions}
+    />
+  );
 }

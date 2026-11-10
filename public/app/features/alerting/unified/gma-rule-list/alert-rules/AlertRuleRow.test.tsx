@@ -68,14 +68,32 @@ describe('AlertRuleRow', () => {
     expect(screen.queryByText('CPU usage is high')).not.toBeInTheDocument();
   });
 
-  it('shows the evaluation interval', () => {
-    renderRow({ searchHit: baseHit({ interval: '5m' }) });
+  it('shows the rule interval and no sequence pill when the rule is in no sequence', () => {
+    renderRow({ searchHit: baseHit({ interval: '5m' }), membership: null });
 
     expect(screen.getByRole('img', { name: 'Evaluated every 5m' })).toBeInTheDocument();
+    expect(screen.queryByText(/Rule sequence/)).not.toBeInTheDocument();
+  });
+
+  it('shows the sequence pill with its interval instead of the rule interval on a member', () => {
+    renderRow({
+      searchHit: baseHit({ interval: '5m' }),
+      membership: { name: 'seq-1', interval: '2m' },
+    });
+
+    expect(screen.queryByRole('img', { name: 'Evaluated every 5m' })).not.toBeInTheDocument();
+    expect(screen.getByText('Rule sequence · 2m')).toBeInTheDocument();
+  });
+
+  it('shows no interval and no pill while membership is unknown', () => {
+    renderRow({ searchHit: baseHit({ interval: '5m' }) });
+
+    expect(screen.queryByRole('img', { name: /Evaluated every/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Rule sequence/)).not.toBeInTheDocument();
   });
 
   it('shows no interval indicator when interval is absent', () => {
-    renderRow({ searchHit: baseHit() });
+    renderRow({ searchHit: baseHit(), membership: null });
 
     expect(screen.queryByRole('img', { name: /Evaluated every/ })).not.toBeInTheDocument();
   });
@@ -134,6 +152,14 @@ describe('AlertRuleRow', () => {
       expect(link).toHaveAttribute('href', '/alerting/grafana/rule-1/view?tab=instances');
       expect(link).toHaveTextContent('3 firing');
       expect(link).toHaveTextContent('7 normal');
+    });
+
+    it('shows the counts first in the meta strip, before the folder path', () => {
+      renderRow({ searchHit: baseHit({ totalsFiring: 3 }), folderPath: ['Team Alerts'] });
+
+      expect(
+        screen.getByRole('link', { name: /instances/i }).compareDocumentPosition(screen.getByText('Team Alerts'))
+      ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     });
 
     it('shows no counts when all totals fields are absent', () => {
