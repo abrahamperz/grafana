@@ -64,34 +64,10 @@ describe('RecordingRuleRow', () => {
     expect(screen.queryByText('remote write failed')).not.toBeInTheDocument();
   });
 
-  it('shows the rule interval and no sequence pill when the rule is in no sequence', () => {
-    renderRow({ searchHit: baseHit({ interval: '1m' }), membership: null });
+  it('passes its sequence to the interval column', () => {
+    renderRow({ searchHit: baseHit({ interval: '1m' }), sequence: { name: 'seq-1', interval: '2m' } });
 
-    expect(screen.getByRole('img', { name: 'Evaluated every 1m' })).toBeInTheDocument();
-    expect(screen.queryByText(/Rule sequence/)).not.toBeInTheDocument();
-  });
-
-  it('shows the sequence pill with its interval instead of the rule interval on a member', () => {
-    renderRow({
-      searchHit: baseHit({ interval: '1m' }),
-      membership: { name: 'seq-1', interval: '2m' },
-    });
-
-    expect(screen.queryByRole('img', { name: 'Evaluated every 1m' })).not.toBeInTheDocument();
     expect(screen.getByText('Rule sequence · 2m')).toBeInTheDocument();
-  });
-
-  it('shows no interval and no pill while membership is unknown', () => {
-    renderRow({ searchHit: baseHit({ interval: '1m' }) });
-
-    expect(screen.queryByRole('img', { name: /Evaluated every/ })).not.toBeInTheDocument();
-    expect(screen.queryByText(/Rule sequence/)).not.toBeInTheDocument();
-  });
-
-  it('shows no interval indicator when interval is absent', () => {
-    renderRow({ searchHit: baseHit(), membership: null });
-
-    expect(screen.queryByRole('img', { name: /Evaluated every/ })).not.toBeInTheDocument();
   });
 
   it('shows the recorded metric and target datasource when the hit has them', () => {

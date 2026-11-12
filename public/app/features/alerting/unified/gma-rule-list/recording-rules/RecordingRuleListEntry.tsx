@@ -16,8 +16,7 @@ interface RecordingRuleListEntryProps {
 export function RecordingRuleListEntry({ searchHit, showFolderPath }: RecordingRuleListEntryProps) {
   const folderPath = useFolderPath(showFolderPath ? searchHit.folderUid : undefined);
   const { data: fullRule } = useGetRecordingRuleQuery({ name: searchHit.uid });
-  // Usually already cached by the page search, so this sends no request.
-  const membership = useRuleSequenceMembership('recording', searchHit.uid);
+  const sequence = useRuleSequenceMembership('recording', searchHit.uid);
 
-  return <RecordingRuleRow searchHit={searchHit} folderPath={folderPath} rule={fullRule} membership={membership} />;
+  return <RecordingRuleRow searchHit={searchHit} folderPath={folderPath} rule={fullRule} sequence={sequence} />;
 }

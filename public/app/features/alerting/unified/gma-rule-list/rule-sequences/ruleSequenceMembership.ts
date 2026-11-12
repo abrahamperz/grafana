@@ -2,10 +2,10 @@ import { useMemo } from 'react';
 import * as z from 'zod';
 
 import {
-  type ListRuleSequenceSearchV1Beta1ApiArg,
-  type ListRuleSequenceSearchV1Beta1ApiResponse,
+  type ListRuleSequenceSearchV0Alpha1ApiArg,
+  type ListRuleSequenceSearchV0Alpha1ApiResponse,
   generatedAPI,
-} from '@grafana/api-clients/rtkq/rules.alerting/v1beta1';
+} from '@grafana/api-clients/rtkq/rules.alerting/v0alpha1';
 
 import { type RuleKind } from '../shared/ruleKind';
 
@@ -36,7 +36,7 @@ type RuleSequenceHit = z.infer<typeof ruleSequenceHitSchema>;
  * Each rule has its own cache entry, which the page search usually fills for the whole page.
  */
 export function useRuleSequenceMembership(kind: RuleKind, uid: string): RuleSequenceMembership | null | undefined {
-  const { currentData } = generatedAPI.useListRuleSequenceSearchV1Beta1Query(membershipSearchArg(kind, [uid]));
+  const { currentData } = generatedAPI.useListRuleSequenceSearchV0Alpha1Query(membershipSearchArg(kind, [uid]));
   return useMemo(() => {
     const parsed = ruleSequenceSearchResponseSchema.safeParse(currentData);
     if (!parsed.success) {
@@ -48,7 +48,7 @@ export function useRuleSequenceMembership(kind: RuleKind, uid: string): RuleSequ
 }
 
 /** The page sends it for all its rules, each row for its own. */
-export function membershipSearchArg(kind: RuleKind, uids: string[]): ListRuleSequenceSearchV1Beta1ApiArg {
+export function membershipSearchArg(kind: RuleKind, uids: string[]): ListRuleSequenceSearchV0Alpha1ApiArg {
   return {
     searchQuery: {
       // search.grafana.app has no other version; the backend rejects any other.
@@ -71,7 +71,7 @@ export function membershipSearchArg(kind: RuleKind, uids: string[]): ListRuleSeq
 export function toMembershipEntries(
   kind: RuleKind,
   uids: string[],
-  response: ListRuleSequenceSearchV1Beta1ApiResponse | undefined
+  response: ListRuleSequenceSearchV0Alpha1ApiResponse | undefined
 ) {
   const parsed = ruleSequenceSearchResponseSchema.safeParse(response);
   if (!parsed.success || !response) {
@@ -82,7 +82,7 @@ export function toMembershipEntries(
     // The parsed hits keep the order of the raw items, so the index picks the raw item of a matching hit.
     const items = response.items.filter((_item, index) => hitContains(hits[index], kind, uid));
     return {
-      endpointName: 'listRuleSequenceSearchV1Beta1' as const,
+      endpointName: 'listRuleSequenceSearchV0Alpha1' as const,
       arg: membershipSearchArg(kind, [uid]),
       value: { items, metadata: { totalHits: items.length, totalHitsRelation: 'eq' } },
     };

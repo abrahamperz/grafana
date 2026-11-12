@@ -1,6 +1,6 @@
 import { HttpResponse, http } from 'msw';
 
-import { API_GROUP, API_VERSION, type RuleSequence } from '@grafana/api-clients/rtkq/rules.alerting/v1beta1';
+import { API_GROUP, API_VERSION, type RuleSequence } from '@grafana/api-clients/rtkq/rules.alerting/v0alpha1';
 
 export const RULE_SEQUENCE_SEARCH_URL = `/apis/${API_GROUP}/${API_VERSION}/namespaces/:namespace/rulesequences/search`;
 
@@ -21,7 +21,7 @@ export const getRuleSequenceSearchHandler = (
       .map((sequence) => ({
         name: sequence.metadata.name ?? '',
         recordingRuleUIDs: sequence.spec.recordingRules.map((ref) => ref.name),
-        alertRuleUIDs: (sequence.spec.alertRules ?? []).map((ref) => ref.name),
+        alertRuleUIDs: (sequence.spec.alertingRules ?? []).map((ref) => ref.name),
         interval: sequence.spec.trigger.interval,
       }))
       .filter((hit) => {

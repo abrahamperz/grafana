@@ -24,11 +24,11 @@ interface RecordingRuleRowProps {
   /** Full rule resource; absent while loading or when the fetch failed. */
   rule?: RecordingRule;
   /** `null`: not in a sequence. Absent while membership loads or when it failed to load. */
-  membership?: RuleSequenceMembership | null;
+  sequence?: RuleSequenceMembership | null;
 }
 
 /** Presentation-only; missing health renders "unavailable", never recording. */
-export function RecordingRuleRow({ searchHit, folderPath, rule, membership }: RecordingRuleRowProps) {
+export function RecordingRuleRow({ searchHit, folderPath, rule, sequence }: RecordingRuleRowProps) {
   const titleId = useId();
   const href = grafanaRulesNav.viewLink(searchHit.uid, { includeReturnTo: true });
   // The write target is already shown in RuleRecordedMetric; exclude it from the queried list.
@@ -47,7 +47,7 @@ export function RecordingRuleRow({ searchHit, folderPath, rule, membership }: Re
         </Stack>
       }
       description={searchHit.lastError && <RuleDescription lastError={searchHit.lastError} />}
-      right={<EffectiveRuleInterval membership={membership} ruleInterval={searchHit.interval} />}
+      right={<EffectiveRuleInterval membership={sequence} ruleInterval={searchHit.interval} />}
       meta={[
         folderPath && folderPath.length > 0 && <FolderPath key="folder" segments={folderPath} />,
         // Both metric and targetDatasourceUID are required: showing "Records X to <unknown>" without

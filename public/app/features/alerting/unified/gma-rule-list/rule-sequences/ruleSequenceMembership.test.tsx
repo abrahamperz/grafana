@@ -1,7 +1,7 @@
 import { HttpResponse, http } from 'msw';
 import { render, screen, userEvent } from 'test/test-utils';
 
-import { type RuleSequence } from '@grafana/api-clients/rtkq/rules.alerting/v1beta1';
+import { type RuleSequence } from '@grafana/api-clients/rtkq/rules.alerting/v0alpha1';
 import server from '@grafana/test-utils/server';
 
 import { setupMswServer } from '../../mockApi';
@@ -19,13 +19,13 @@ interface SequenceSearchBody {
 
 function ruleSequence(name: string, interval: string, recordingRules: string[], alertingRules: string[]): RuleSequence {
   return {
-    apiVersion: 'rules.alerting.grafana.app/v1beta1',
+    apiVersion: 'rules.alerting.grafana.app/v0alpha1',
     kind: 'RuleSequence',
     metadata: { name },
     spec: {
       trigger: { interval },
       recordingRules: recordingRules.map((uid) => ({ name: uid })),
-      alertRules: alertingRules.map((uid) => ({ name: uid })),
+      alertingRules: alertingRules.map((uid) => ({ name: uid })),
     },
   };
 }

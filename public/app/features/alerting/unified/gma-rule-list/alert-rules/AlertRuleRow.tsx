@@ -25,12 +25,12 @@ interface AlertRuleRowProps {
   /** Full rule resource; absent while loading or when the fetch failed. */
   rule?: AlertRule;
   /** `null`: not in a sequence. Absent while membership loads or when it failed to load. */
-  membership?: RuleSequenceMembership | null;
+  sequence?: RuleSequenceMembership | null;
   /** Edit button, More dropdown, or a loading skeleton — provided by AlertRuleListEntry. */
   actions?: ReactNode;
 }
 
-export function AlertRuleRow({ searchHit, folderPath, rule, membership, actions }: AlertRuleRowProps) {
+export function AlertRuleRow({ searchHit, folderPath, rule, sequence, actions }: AlertRuleRowProps) {
   const titleId = useId();
 
   return (
@@ -52,7 +52,7 @@ export function AlertRuleRow({ searchHit, folderPath, rule, membership, actions 
       }
       right={
         <Stack alignItems="center" gap={1.5} wrap={false}>
-          <EffectiveRuleInterval membership={membership} ruleInterval={searchHit.interval} />
+          <EffectiveRuleInterval membership={sequence} ruleInterval={searchHit.interval} />
           {actions}
         </Stack>
       }

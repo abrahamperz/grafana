@@ -18,8 +18,7 @@ interface AlertRuleListEntryProps {
 export function AlertRuleListEntry({ searchHit, showFolderPath }: AlertRuleListEntryProps) {
   const folderPath = useFolderPath(showFolderPath ? searchHit.folderUid : undefined);
   const { data: fullRule, isLoading } = useGetAlertRuleQuery({ name: searchHit.uid });
-  // Usually already cached by the page search, so this sends no request.
-  const membership = useRuleSequenceMembership('alert', searchHit.uid);
+  const sequence = useRuleSequenceMembership('alert', searchHit.uid);
 
   let actions = null;
   if (isLoading) {
@@ -33,7 +32,7 @@ export function AlertRuleListEntry({ searchHit, showFolderPath }: AlertRuleListE
       searchHit={searchHit}
       folderPath={folderPath}
       rule={fullRule}
-      membership={membership}
+      sequence={sequence}
       actions={actions}
     />
   );
