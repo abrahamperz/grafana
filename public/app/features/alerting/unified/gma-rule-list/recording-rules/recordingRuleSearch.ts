@@ -13,7 +13,7 @@ import { buildRecordingRuleLeaves, buildRecordingRuleSearchQuery } from './recor
 
 /**
  * Infinite query keyed by filter, so a new filter starts again from the first page. It wraps the generated
- * search, a POST mutation with no tags or page state.
+ * search, which has no tags or page state.
  */
 const recordingRuleSearchAPI = generatedAPI.injectEndpoints({
   endpoints: (build) => ({
@@ -28,20 +28,19 @@ const recordingRuleSearchAPI = generatedAPI.injectEndpoints({
       },
       // Results are a view of the current page only: leaving it drops them, and coming back searches again.
       keepUnusedDataFor: 0,
-      queryFn: ({ queryArg, pageParam }, api) =>
-        fetchRuleSearchPage(
-          {
-            kind: 'recording',
-            search: () =>
-              api.dispatch(
-                generatedAPI.endpoints.listRecordingRuleSearchRulesV0Alpha1.initiate({
-                  listRecordingRuleSearchRulesV0Alpha1RequestBody: buildRecordingRuleSearchQuery(queryArg, pageParam),
-                })
-              ),
-            itemSchema: recordingRuleSearchHitSchema,
-          },
-          api
-        ),
+      queryFn: ({ queryArg, pageParam }, { dispatch }) =>
+        fetchRuleSearchPage({
+          kind: 'recording',
+          request: dispatch(
+            generatedAPI.endpoints.listRecordingRuleSearchRulesV0Alpha1.initiate(
+              { listRecordingRuleSearchRulesV0Alpha1RequestBody: buildRecordingRuleSearchQuery(queryArg, pageParam) },
+              // forceRefetch: a page refetch must not reuse an earlier answer for the same page.
+              { subscribe: false, forceRefetch: true }
+            )
+          ),
+          itemSchema: recordingRuleSearchHitSchema,
+          dispatch,
+        }),
       providesTags: ['RecordingRule', 'RuleSequence'],
     }),
   }),

@@ -21,21 +21,22 @@ export interface RuleSearchPage<Hit> {
   total?: ResultTotal;
 }
 
-interface RuleSearchPageRequest<Hit> {
+/**
+ * The page search's queryFn: sends the generated search for one page and parses the response, then caches each
+ * rule's sequence membership before it returns.
+ */
+export async function fetchRuleSearchPage<Hit extends { uid: string }>({
+  kind,
+  request,
+  itemSchema,
+  dispatch,
+}: {
   kind: RuleKind;
-  search: () => PromiseLike<{ data?: unknown; error?: unknown }> & { reset: () => void };
+  request: PromiseLike<{ data?: unknown; error?: unknown }>;
   itemSchema: z.ZodType<Hit>;
-}
-
-/** The page search's queryFn: one page of rules, with each rule's sequence membership cached before it returns. */
-export async function fetchRuleSearchPage<Hit extends { uid: string }>(
-  { kind, search, itemSchema }: RuleSearchPageRequest<Hit>,
-  api: BaseQueryApi
-): Promise<QueryReturnValue<RuleSearchPage<Hit>, unknown, undefined>> {
-  const request = search();
+  dispatch: BaseQueryApi['dispatch'];
+}): Promise<QueryReturnValue<RuleSearchPage<Hit>, unknown, undefined>> {
   const response = await request;
-  // A mutation keeps its result in the store until it is reset.
-  request.reset();
   if (response.error) {
     return { error: response.error };
   }
@@ -49,13 +50,13 @@ export async function fetchRuleSearchPage<Hit extends { uid: string }>(
   const uids = parsed.data.hits.map((hit) => hit.uid);
   if (uids.length > 0) {
     // forceRefetch: a page refetch must not reuse an earlier answer for the same rules.
-    const sequences = await api.dispatch(
+    const sequences = await dispatch(
       generatedAPI.endpoints.listRuleSequenceSearchV0Alpha1.initiate(membershipSearchArg(kind, uids), {
         subscribe: false,
         forceRefetch: true,
       })
     );
-    api.dispatch(generatedAPI.util.upsertQueryEntries(toMembershipEntries(kind, uids, sequences.data)));
+    dispatch(generatedAPI.util.upsertQueryEntries(toMembershipEntries(kind, uids, sequences.data)));
   }
   return { data: parsed.data };
 }

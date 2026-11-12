@@ -13,7 +13,7 @@ import { buildAlertRuleLeaves, buildAlertRuleSearchQuery } from './alertRuleSear
 
 /**
  * Infinite query keyed by filter, so a new filter starts again from the first page. It wraps the generated
- * search, a POST mutation with no tags or page state.
+ * search, which has no tags or page state.
  */
 const alertRuleSearchAPI = generatedAPI.injectEndpoints({
   endpoints: (build) => ({
@@ -24,20 +24,19 @@ const alertRuleSearchAPI = generatedAPI.injectEndpoints({
       },
       // Results are a view of the current page only: leaving it drops them, and coming back searches again.
       keepUnusedDataFor: 0,
-      queryFn: ({ queryArg, pageParam }, api) =>
-        fetchRuleSearchPage(
-          {
-            kind: 'alert',
-            search: () =>
-              api.dispatch(
-                generatedAPI.endpoints.listAlertRuleSearchRulesV0Alpha1.initiate({
-                  listAlertRuleSearchRulesV0Alpha1RequestBody: buildAlertRuleSearchQuery(queryArg, pageParam),
-                })
-              ),
-            itemSchema: alertRuleSearchHitSchema,
-          },
-          api
-        ),
+      queryFn: ({ queryArg, pageParam }, { dispatch }) =>
+        fetchRuleSearchPage({
+          kind: 'alert',
+          request: dispatch(
+            generatedAPI.endpoints.listAlertRuleSearchRulesV0Alpha1.initiate(
+              { listAlertRuleSearchRulesV0Alpha1RequestBody: buildAlertRuleSearchQuery(queryArg, pageParam) },
+              // forceRefetch: a page refetch must not reuse an earlier answer for the same page.
+              { subscribe: false, forceRefetch: true }
+            )
+          ),
+          itemSchema: alertRuleSearchHitSchema,
+          dispatch,
+        }),
       providesTags: ['AlertRule', 'RuleSequence'],
     }),
   }),
